@@ -1,0 +1,54 @@
+name: Test SMTP Connection
+
+on: [push]  # 只要提交代码就触发
+
+jobs:
+  test-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Run SMTP Test Script
+        env:
+          # 直接引用你仓库里配好的 Secrets
+          SENDER: ${{ secrets.SENDER }}
+          PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        run: |
+          python -c "
+          import smtplib
+          import os
+          import sys
+
+          sender = os.environ.get('SENDER')
+          password = os.environ.get('PASSWORD')
+          server = os.environ.get('SMTP_SERVER')
+          port = int(os.environ.get('SMTP_PORT'))
+
+          print(f'正在尝试连接 {server}:{port} ...')
+
+          try:
+              # 尝试 SSL 连接 (推荐端口 465)
+              if port == 465:
+                  print('使用 SMTP_SSL...')
+                  smtp = smtplib.SMTP_SSL(server, port, timeout=10)
+              # 尝试 TLS 连接 (推荐端口 587)
+              else:
+                  print('使用 SMTP (TLS)...')
+                  smtp = smtplib.SMTP(server, port, timeout=10)
+                  smtp.set_debuglevel(1) # 打印详细交互过程
+                  smtp.starttls()
+
+              print('连接成功，正在登录...')
+              smtp.login(sender, password)
+              print('✅ 登录成功！配置正确。')
+              smtp.quit()
+              
+          except Exception as e:
+              print(f'❌ 失败: {e}')
+              sys.exit(1)
+          "
